@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALFAGAME STORE</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .hidden-section { display: none; }
+    .toast { animation: slide-in 0.5s ease; }
+    @keyframes slide-in {
+      from { transform: translateY(-100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-white transition-colors duration-300" id="body">
+
+<!-- Toast Notification -->
+<div id="toast" class="hidden fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg toast z-50"></div>
+
+<!-- Navbar -->
+<nav class="bg-blue-600 text-white px-6 py-4 flex justify-between items-center shadow-md">
+  <div class="text-2xl font-bold">ALFAGAME STORE</div>
+  <ul class="flex gap-4 text-sm font-semibold">
+    <li><button onclick="showSection('home')">Home</button></li>
+    <li><button onclick="showSection('topup')">Top-Up</button></li>
+    <li><button onclick="showSection('login')">Login</button></li>
+    <li><button onclick="showSection('register')">Register</button></li>
+    <li><button onclick="showSection('dashboard')">Dashboard</button></li>
+    <li><button onclick="logout()">Logout</button></li>
+  </ul>
+</nav>
+
+<!-- Home Section -->
+<section id="home" class="p-6">
+  <h2 class="text-4xl font-bold mb-4">Selamat Datang di ALFAGAME STORE</h2>
+  <p class="text-lg">Tempat terpercaya untuk top-up semua game favorit kamu!</p>
+</section>
+
+<!-- Top-Up Section -->
+<section id="topup" class="p-6 hidden-section">
+  <h2 class="text-3xl font-bold mb-4">Top-Up Game</h2>
+  <div class="max-w-xl bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-4">
+    <label class="block">Pilih Game</label>
+    <select id="gameSelect" class="w-full p-2 border rounded dark:bg-gray-700"></select>
+
+    <label>Jumlah Topup (<span id="currencyLabel">Item</span>)</label>
+    <select id="topupSelect" class="w-full p-2 border rounded dark:bg-gray-700"></select>
+
+    <p id="priceEstimate" class="text-green-600 font-semibold">Rp0</p>
+
+    <input id="gameId" type="text" placeholder="ID Game" class="w-full p-2 border rounded dark:bg-gray-700" />
+    <input id="email" type="email" placeholder="Email Aktif" class="w-full p-2 border rounded dark:bg-gray-700" />
+
+    <label>Metode Pembayaran</label>
+    <select id="paymentMethod" class="w-full p-2 border rounded dark:bg-gray-700">
+      <option value="dana">DANA</option>
+      <option value="ovo">OVO</option>
+      <option value="qris">QRIS</option>
+    </select>
+
+    <button onclick="submitTopup()" class="bg-blue-600 text-white px-4 py-2 rounded">Kirim</button>
+  </div>
+</section>
+
+<!-- Login Section -->
+<section id="login" class="p-6 hidden-section">
+  <h2 class="text-3xl font-bold mb-4">Login</h2>
+  <div class="max-w-sm bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-4">
+    <input id="loginEmail" type="email" placeholder="Email" class="w-full p-2 border rounded dark:bg-gray-700" />
+    <input id="loginPassword" type="password" placeholder="Password" class="w-full p-2 border rounded dark:bg-gray-700" />
+    <button onclick="login()" class="bg-green-600 text-white px-4 py-2 rounded w-full">Login</button>
+  </div>
+</section>
+
+<!-- Register Section -->
+<section id="register" class="p-6 hidden-section">
+  <h2 class="text-3xl font-bold mb-4">Register</h2>
+  <div class="max-w-sm bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-4">
+    <input id="regEmail" type="email" placeholder="Email" class="w-full p-2 border rounded dark:bg-gray-700" />
+    <input id="regPassword" type="password" placeholder="Password" class="w-full p-2 border rounded dark:bg-gray-700" />
+    <button onclick="register()" class="bg-purple-600 text-white px-4 py-2 rounded w-full">Register</button>
+  </div>
+</section>
+
+<!-- Dashboard Section -->
+<section id="dashboard" class="p-6 hidden-section">
+  <h2 class="text-3xl font-bold mb-4">Dashboard Admin</h2>
+  <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-2">
+    <h3 class="font-semibold">Total Transaksi</h3>
+    <ul id="transactionList" class="list-disc ml-6 text-sm"></ul>
+    <h3 class="font-semibold mt-4">Pengguna Terdaftar</h3>
+    <ul id="userList" class="list-disc ml-6 text-sm"></ul>
+    <button onclick="clearData()" class="bg-red-500 text-white px-4 py-1 mt-4 rounded">Hapus Semua Data</button>
+  </div>
+</section>
+
+<script>
+// Game Data
+const games = {
+  ml: { name: "Mobile Legends", currency: "Diamond", topups: [50, 100, 250], price: 150 },
+  ff: { name: "Free Fire", currency: "Diamond", topups: [100, 210, 355], price: 120 },
+  pubg: { name: "PUBG Mobile", currency: "UC", topups: [60, 180, 720], price: 170 }
+};
+
+// Initial Setup
+function init() {
+  let select = document.getElementById("gameSelect");
+  for (let key in games) {
+    let opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = games[key].name;
+    select.appendChild(opt);
+  }
+  updateTopupOptions();
+  select.addEventListener("change", updateTopupOptions);
+  document.getElementById("topupSelect").addEventListener("change", updatePrice);
+}
+function updateTopupOptions() {
+  const gameKey = document.getElementById("gameSelect").value;
+  const topupSelect = document.getElementById("topupSelect");
+  const currencyLabel = document.getElementById("currencyLabel");
+  const game = games[gameKey];
+  topupSelect.innerHTML = "";
+  currencyLabel.textContent = game.currency;
+  game.topups.forEach(t => {
+    let opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = `${t} ${game.currency}`;
+    topupSelect.appendChild(opt);
+  });
+  updatePrice();
+}
+function updatePrice() {
+  const gameKey = document.getElementById("gameSelect").value;
+  const qty = parseInt(document.getElementById("topupSelect").value || 0);
+  const game = games[gameKey];
+  const price = qty * game.price;
+  document.getElementById("priceEstimate").textContent = `Rp${price.toLocaleString("id-ID")}`;
+}
+
+// Toast Notification
+function showToast(msg) {
+  const toast = document.getElementById("toast");
+  toast.textContent = msg;
+  toast.classList.remove("hidden");
+  setTimeout(() => toast.classList.add("hidden"), 3000);
+}
+
+// Form Submission
+function submitTopup() {
+  const game = games[document.getElementById("gameSelect").value].name;
+  const qty = document.getElementById("topupSelect").value;
+  const id = document.getElementById("gameId").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const pay = document.getElementById("paymentMethod").value;
+  if (!id || !email) return showToast("Harap lengkapi data");
+  let transaksi = JSON.parse(localStorage.getItem("transaksi") || "[]");
+  transaksi.push({ game, qty, id, email, pay });
+  localStorage.setItem("transaksi", JSON.stringify(transaksi));
+  showToast("Top-up berhasil disimpan!");
+}
+
+// Login/Register System
+function register() {
+  const email = document.getElementById("regEmail").value.trim();
+  const pass = document.getElementById("regPassword").value.trim();
+  if (!email || !pass) return showToast("Isi email dan password");
+  let users = JSON.parse(localStorage.getItem("users") || "[]");
+  users.push({ email, pass });
+  localStorage.setItem("users", JSON.stringify(users));
+  showToast("Registrasi berhasil");
+}
+function login() {
+  const email = document.getElementById("loginEmail").value.trim();
+  const pass = document.getElementById("loginPassword").value.trim();
+  let users = JSON.parse(localStorage.getItem("users") || "[]");
+  const valid = users.find(u => u.email === email && u.pass === pass);
+  if (valid) {
+    localStorage.setItem("loggedIn", email);
+    showToast("Login berhasil");
+    showSection("dashboard");
+    renderDashboard();
+  } else {
+    showToast("Email atau password salah");
+  }
+}
+function logout() {
+  localStorage.removeItem("loggedIn");
+  showToast("Logout berhasil");
+  showSection("home");
+}
+
+// Navigasi Halaman
+function showSection(id) {
+  document.querySelectorAll("section").forEach(s => s.classList.add("hidden-section"));
+  const isLoggedIn = localStorage.getItem("loggedIn");
+  if (id === "dashboard" && !isLoggedIn) return showToast("Login sebagai admin!");
+  document.getElementById(id).classList.remove("hidden-section");
+  if (id === "dashboard") renderDashboard();
+}
+
+// Dashboard Admin
+function renderDashboard() {
+  const transactions = JSON.parse(localStorage.getItem("transaksi") || "[]");
+  const users = JSON.parse(localStorage.getItem("users") || "[]");
+  const list = document.getElementById("transactionList");
+  const userList = document.getElementById("userList");
+  list.innerHTML = "";
+  userList.innerHTML = "";
+  transactions.forEach(t => {
+    let li = document.createElement("li");
+    li.textContent = `${t.game} (${t.qty}) - ${t.email}`;
+    list.appendChild(li);
+  });
+  users.forEach(u => {
+    let li = document.createElement("li");
+    li.textContent = u.email;
+    userList.appendChild(li);
+  });
+}
+function clearData() {
+  localStorage.removeItem("transaksi");
+  localStorage.removeItem("users");
+  showToast("Data berhasil dihapus");
+  renderDashboard();
+}
+
+init();
+</script>
+</body>
+</html>
